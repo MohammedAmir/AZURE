@@ -1,0 +1,350 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": 
+    {           
+        "adminLogin": 
+        {
+            "type": "string",
+            "defaultValue": "administrator",
+            "metadata": {         "description": "The SQL Server administrator login"         }
+        },
+        "adminPassword": 
+        {    
+            "type": "securestring",
+            "defaultValue": "xxxxxxxxxx",
+            "metadata": {         "description": "The SQL Server administrator login password."         }
+        },
+        "servers_name": {
+            "defaultValue": "sqlserver100",
+            "type": "String",
+            "metadata": {         "description": "Database Server Name"         }
+        },
+        "database_name": {
+            "defaultValue": "db-01",
+            "type": "String",
+            "metadata": {         "description": "database name"         }
+        },
+        "privateEndpoints_name": 
+        {
+            "defaultValue": "PnP-sqlserver-100",
+            "type": "String",
+            "metadata": {         "description": "Private End Point Name"         }
+        },
+
+        "virtualNetworks_externalid": 
+        {
+            "defaultValue": "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Network/virtualNetworks/<virtualnetwork-name>",
+            "type": "String"
+        },
+        "privateDnsZones_externalid": {
+            "defaultValue": "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Network/privateDnsZones/privatelink.database.windows.net",
+            "type": "String"
+        },
+        "privateDnsZones_name": 
+        {
+            "type": "String",
+            "defaultValue": "privatelink.database.windows.net"
+        },
+        "location": 
+        {
+            "defaultValue": "westus",
+            "allowedValues": ["westus", "eastus"],
+            "type": "String"
+        },
+        "connectionType": 
+        {
+            "defaultValue": "Redirect",
+            "allowedValues": ["Default", "Redirect", "Proxy"],
+            "type": "string",
+            "metadata": {"description": "Database Server Connection Type."}
+        },
+        "edition": 
+        {
+            "type": "string",
+            "defaultValue": "Standard",
+            "allowedValues": [ "Basic", "Standard", "Premium", "GP_Gen5", "BC_Gen5" ],
+            "metadata": {               "description": "The Elastic Pool edition."           }
+        },
+        "capacity": 
+        {
+            "type": "int",
+            "defaultValue": 50,
+            "metadata": {             "description": "The DTU or # of vcore."        }
+        }
+    },
+    "variables": 
+    {
+    "var_servers_externalid": "[concat('/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Sql/servers/',parameters('servers_name')) ]",
+ 
+       "editionToSkuMap": 
+        {
+            "Basic": 
+            {
+                "family": null,
+                "name": "Basic",
+                "tier": "Basic",
+                "metadata": {                   "description": "The Elastic Pool Basic DTU "               }
+            },
+            "Standard": 
+            {
+                "family": null,
+                "name": "Standard",
+                "tier": "Standard",
+                "metadata": {                  "description": "The Elastic Pool Standard DTU "               }
+            },
+            "Premium": 
+            {
+                "family": null,
+                "name": "Premium",
+                "tier": "Premium",
+                "metadata": {                   "description": "The Elastic Pool Premium DTU "               }
+            },
+            "GP_Gen5": 
+            {
+                "family": "Gen5",
+                "name": "GP_Gen5",
+                "tier": "GeneralPurpose",
+                "metadata": {                   "description": "The Elastic Pool General Purpose vCore "               }
+            },
+            "BC_Gen5": 
+            {
+                "family": "Gen5",
+                "name": "BC_Gen5",
+                "tier": "BusinessCritical",
+                "metadata": {                   "description": "The Elastic Pool Business Critical vCore "               }
+            }
+
+        },
+        "skuName": "[variables('editionToSkuMap')[parameters('edition')].name]",
+        "skuTier": "[variables('editionToSkuMap')[parameters('edition')].tier]",
+        "skuFamily": "[variables('editionToSkuMap')[parameters('edition')].family]"
+
+    },
+    "resources": 
+    [
+         {
+            "type": "Microsoft.Sql/servers/administrators",
+            "apiVersion": "2020-11-01-preview",
+            "name": "[concat(parameters('servers_name'), '/ActiveDirectory')]",
+            "dependsOn": [         "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"      ],
+            "properties": 
+            {
+                "administratorType": "ActiveDirectory",
+                "login": "admin@MICROSOFT.COM",
+                "sid": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX",
+                "tenantId": "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+            }
+        },
+        {
+            "type": "Microsoft.Sql/servers",
+            "apiVersion": "2021-02-01-preview",
+            "name": "[parameters('servers_name')]",
+            "location": "[parameters('location')]",
+            "tags": {
+                "APP_NAME": "PoC"
+            },
+            "kind": "v12.0",
+            "properties": 
+            {
+                "administratorLogin": "[parameters('adminLogin')]",
+                "administratorLoginPassword": "[parameters('adminPassword')]",
+                "version": "12.0",
+                "minimalTlsVersion": "1.2",
+                "publicNetworkAccess": "Disabled"
+            },
+            "resources": 
+               [{
+                  "type": "connectionPolicies",
+                  "apiVersion": "2014-04-01",
+                  "name": "Default",
+                  "dependsOn": [  "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"  ],
+                  "properties": { "connectionType": "[parameters('connectionType')]" }
+                }]
+        },
+
+        {
+            "type": "Microsoft.Sql/servers/databases",
+            "apiVersion": "2021-02-01-preview",
+            "name": "[concat(parameters('servers_name'), '/',parameters('database_name'))]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+            ],
+            "tags": {
+                "APP_NAME": "PoC"
+            },
+            "sku": 
+            {
+                "name": "[variables('skuName')]",
+                "tier": "[variables('skuTier')]",
+                "capacity": "[parameters('capacity')]",
+                "family": "[variables('skuFamily')]"
+            },
+            "kind": "v12.0,user",
+            "properties": {
+                "collation": "SQL_Latin1_General_CP1_CI_AS",
+                "catalogCollation": "SQL_Latin1_General_CP1_CI_AS",
+                "zoneRedundant": false,
+                "readScale": "Disabled",
+                "requestedBackupStorageRedundancy": "Local",
+                "maintenanceConfigurationId": "/subscriptions/<subscription-id>/providers/Microsoft.Maintenance/publicMaintenanceConfigurations/SQL_Default"
+
+            }
+        },  
+
+        {
+            "type": "Microsoft.Sql/servers/databases/auditingPolicies",
+            "apiVersion": "2014-04-01",
+            "name": "[concat(parameters('servers_name'), '/',parameters('database_name'),'/Default')]",
+            "location": "[parameters('location')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+                "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+            ],
+            "properties": {           "auditingState": "Disabled"           }
+        },
+        {
+            "type": "Microsoft.Sql/servers/auditingSettings",
+            "apiVersion": "2021-02-01-preview",
+            "name": "[concat(parameters('servers_name'), '/Default')]",
+            "dependsOn": [  "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"    ],
+            "properties": 
+            {
+                "isDevopsAuditEnabled": false,
+                "retentionDays": 0,
+                "auditActionsAndGroups": [
+                    "DATABASE_OBJECT_CHANGE_GROUP",
+                    "DATABASE_OBJECT_OWNERSHIP_CHANGE_GROUP",
+                    "DATABASE_OBJECT_PERMISSION_CHANGE_GROUP",
+                    "DATABASE_ROLE_MEMBER_CHANGE_GROUP",
+                    "SCHEMA_OBJECT_CHANGE_GROUP",
+                    "SCHEMA_OBJECT_PERMISSION_CHANGE_GROUP",
+                    "DATABASE_PERMISSION_CHANGE_GROUP",
+                    "DATABASE_PRINCIPAL_CHANGE_GROUP"
+                ],
+                "isAzureMonitorTargetEnabled": true,
+                "state": "Enabled",
+                "storageAccountSubscriptionId": "00000000-0000-0000-0000-000000000000"
+            }
+        },
+        {
+            "type": "Microsoft.Sql/servers/databases/auditingSettings",
+            "apiVersion": "2021-02-01-preview",
+            "name": "[concat(parameters('servers_name'), '/',parameters('database_name'),'/Default')]",
+            "dependsOn": 
+              [
+                "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+                "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+              ],
+            "properties": 
+            {
+                "retentionDays": 0,
+                "state": "Disabled",
+                "auditActionsAndGroups": 
+                [
+                    "INSERT,UPDATE,DELET",
+                    "DATABASE_ROLE_MEMBER_CHANGE_GROUP",
+                    "DATABASE_OBJECT_PERMISSION_CHANGE_GROUP",
+                    "DATABASE_OBJECT_CHANGE_GROUP",
+                    "DATABASE_OBJECT_OWNERSHIP_CHANGE_GROUP",
+                    "SCHEMA_OBJECT_CHANGE_GROUP"
+                ],
+                "isStorageSecondaryKeyInUse": false,
+                "isAzureMonitorTargetEnabled": false,
+                "storageAccountSubscriptionId": "00000000-0000-0000-0000-000000000000"
+            }
+        },
+        {
+            "type": "Microsoft.Sql/servers/databases/backupLongTermRetentionPolicies",
+            "apiVersion": "2021-02-01-preview",
+            "name": "[concat(parameters('servers_name'), '/', parameters('database_name'),'/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+                "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+                         ],
+            "properties": 
+            {
+                "weeklyRetention": "PT0S",
+                "monthlyRetention": "PT0S",
+                "yearlyRetention": "PT0S",
+                "weekOfYear": 1
+            }
+        },
+        {
+            "type": "Microsoft.Sql/servers/databases/backupShortTermRetentionPolicies",
+            "apiVersion": "2021-02-01-preview",
+            "name": "[concat(parameters('servers_name'), '/',parameters('database_name'),'/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+                "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+                  ],
+            "properties": {           "retentionDays": 30        }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints",
+            "apiVersion": "2020-11-01",
+            "name": "[parameters('privateEndpoints_name')]",
+            "location": "[parameters('location')]",
+            "tags": {         "APP_NAME": "PoC"     },
+            "properties": {
+                "privateLinkServiceConnections": 
+                [
+                    {
+                        "name": "[parameters('privateEndpoints_name')]",
+                        "properties": 
+                        {
+                            "privateLinkServiceId": "[variables('var_servers_externalid')]",
+                            "groupIds": ["SqlServer"],
+                            "privateLinkServiceConnectionState": 
+                            {
+                                "status": "Approved",
+                                "description": "Auto-approved",
+                                "actionsRequired": "None"
+                            }
+                        }
+                    }
+                ],
+                "manualPrivateLinkServiceConnections": [],
+                "subnet": {    "id": "[concat(parameters('virtualNetworks_externalid'), '/subnets/<subnet-name>')]"},
+                "customDnsConfigs": []
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateDnsZones",
+            "apiVersion": "2018-09-01",
+            "name": "[parameters('privateDnsZones_name')]",
+            "location": "global",
+            "tags": {         "APP_NAME": "PoC"       },
+            "properties": 
+            {
+                "maxNumberOfRecordSets": 25000,
+                "maxNumberOfVirtualNetworkLinks": 1000,
+                "maxNumberOfVirtualNetworkLinksWithRegistration": 100,
+                "numberOfRecordSets": 2,
+                "numberOfVirtualNetworkLinks": 2,
+                "numberOfVirtualNetworkLinksWithRegistration": 0,
+                "provisioningState": "Succeeded"
+            }
+        },
+        {
+            "type": "Microsoft.Network/privateEndpoints/privateDnsZoneGroups",
+            "apiVersion": "2020-11-01",
+            "name": "[concat(parameters('privateEndpoints_name'), '/default')]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/privateEndpoints', parameters('privateEndpoints_name'))]"
+            ],
+            "properties": {
+                "privateDnsZoneConfigs": [
+                    {
+                        "name": "privatelink-database-windows-net",
+                        "properties": {
+                            "privateDnsZoneId": "[parameters('privateDnsZones_externalid')]"
+                        }
+                    }
+                ]
+            }
+        }
+        
+   ]
+}
