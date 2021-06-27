@@ -7,13 +7,13 @@
         {
             "type": "string",
             "defaultValue": "administrator",
-            "metadata": {         "description": "The SQL Server administrator login"         }
+            "metadata": {    "description": "The SQL Server administrator login"    }
         },
         "adminPassword": 
         {    
             "type": "securestring",
             "defaultValue": "xxxxxxxxxx",
-            "metadata": {         "description": "The SQL Server administrator login password."         }
+            "metadata": {    "description": "The SQL Server administrator login password."    }
         },
         "servers_name": {
             "defaultValue": "sqlserver100",
