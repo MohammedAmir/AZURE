@@ -99,28 +99,26 @@
                 "family": null,
                 "name": "Premium",
                 "tier": "Premium",
-                "metadata": {                   "description": "The Elastic Pool Premium DTU "               }
+                "metadata": { "description": "The Elastic Pool Premium DTU "        }
             },
             "GP_Gen5": 
             {
                 "family": "Gen5",
                 "name": "GP_Gen5",
                 "tier": "GeneralPurpose",
-                "metadata": {                   "description": "The Elastic Pool General Purpose vCore "               }
+                "metadata": {   "description": "The Elastic Pool General Purpose vCore "       }
             },
             "BC_Gen5": 
             {
                 "family": "Gen5",
                 "name": "BC_Gen5",
                 "tier": "BusinessCritical",
-                "metadata": {                   "description": "The Elastic Pool Business Critical vCore "               }
+                "metadata": {    "description": "The Elastic Pool Business Critical vCore "   }
             }
-
         },
         "skuName": "[variables('editionToSkuMap')[parameters('edition')].name]",
         "skuTier": "[variables('editionToSkuMap')[parameters('edition')].tier]",
         "skuFamily": "[variables('editionToSkuMap')[parameters('edition')].family]"
-
     },
     "resources": 
     [
