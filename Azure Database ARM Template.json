@@ -85,14 +85,14 @@
                 "family": null,
                 "name": "Basic",
                 "tier": "Basic",
-                "metadata": {                   "description": "The Elastic Pool Basic DTU "               }
+                "metadata": {      "description": "The Elastic Pool Basic DTU "  }
             },
             "Standard": 
             {
                 "family": null,
                 "name": "Standard",
                 "tier": "Standard",
-                "metadata": {                  "description": "The Elastic Pool Standard DTU "               }
+                "metadata": {  "description": "The Elastic Pool Standard DTU "    }
             },
             "Premium": 
             {
