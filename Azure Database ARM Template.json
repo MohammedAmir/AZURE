@@ -37,7 +37,8 @@
             "defaultValue": "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Network/virtualNetworks/<virtualnetwork-name>",
             "type": "String"
         },
-        "privateDnsZones_externalid": {
+        "privateDnsZones_externalid": 
+        {
             "defaultValue": "/subscriptions/<subscription-id>/resourceGroups/<resource-group-name>/providers/Microsoft.Network/privateDnsZones/privatelink.database.windows.net",
             "type": "String"
         },
