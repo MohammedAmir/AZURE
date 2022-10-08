@@ -1,0 +1,376 @@
+{
+   "$schema":"https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+   "contentVersion":"1.0.0.0",
+   "parameters":{
+      "adminLogin":{
+         "type":"string",
+         "defaultValue":"SQLDBASA",
+         "metadata":{
+            "description":"The SQL Server administrator login"
+         }
+      },
+      "adminPassword":{
+         "type":"securestring",
+         "defaultValue":"123456@D",
+         "metadata":{
+            "description":"The SQL Server administrator login password."
+         }
+      },
+      "servers_name":{
+         "defaultValue":"asq-prod-msmap",
+         "type":"String"
+      },
+      "database_name":{
+         "defaultValue":"SCHEDULER",
+         "type":"String"
+      },
+      "privateEndpoints_name":{
+         "defaultValue":"PEP-AzSQL-PROD-MSMAP",
+         "type":"String"
+      },
+      "vnet_name":{
+         "defaultValue":"VN-CAC-PRD-MS-01",
+         "type":"String"
+      },
+      "resource_group":{
+         "defaultValue":"RG-Member_Web-PRD",
+         "type":"String"
+      },
+      "vnet_name_rg":{
+         "defaultValue":"RG-NET-PRD",
+         "type":"String"
+      },
+      "subnet_name":{
+         "defaultValue":"SN-PRD-DB-MS-01",
+         "type":"String"
+      },
+      "ci_name":{
+         "defaultValue":"Member Web",
+         "type":"String"
+      },
+      "subscriptions_id":{
+         "defaultValue":"86fddc19-338b-4e00-9efc-a0355bbca131",
+         "type":"String"
+      },
+      "location":{
+         "defaultValue":"canadacentral",
+         "allowedValues":[
+            "canadacentral",
+            "canadaeast"
+         ],
+         "type":"String"
+      },
+      "connectionType":{
+         "defaultValue":"Redirect",
+         "allowedValues":[
+            "Default",
+            "Redirect",
+            "Proxy"
+         ],
+         "type":"string",
+         "metadata":{
+            "description":"Database Server Connection Type."
+         }
+      },
+      "edition":{
+         "type":"string",
+         "defaultValue":"Standard",
+         "allowedValues":[
+            "Basic",
+            "Standard",
+            "Premium",
+            "GP_Gen5",
+            "BC_Gen5"
+         ],
+         "metadata":{
+            "description":"The Elastic Pool edition."
+         }
+      },
+      "capacity":{
+         "type":"int",
+         "defaultValue":100,
+         "metadata":{
+            "description":"The DTU or # of vcore."
+         }
+      }
+   },
+   "variables":{
+      "var_virtualNetworks_externalid":"[concat('/subscriptions/',parameters('subscriptions_id'),'/resourceGroups/',parameters('vnet_name_rg'),'/providers/Microsoft.Network/virtualNetworks/', parameters('vnet_name'))]",
+      "var_servers_externalid":"[concat('/subscriptions/',parameters('subscriptions_id'),'/resourceGroups/',parameters('resource_group'),'/providers/Microsoft.Sql/servers/', parameters('servers_name'))]",
+      "editionToSkuMap":{
+         "Basic":{
+            "family":null,
+            "name":"Basic",
+            "tier":"Basic",
+            "metadata":{
+               "description":"The SKU Pool Basic DTU "
+            }
+         },
+         "Standard":{
+            "family":null,
+            "name":"Standard",
+            "tier":"Standard",
+            "metadata":{
+               "description":"The SKU Pool Standard DTU "
+            }
+         },
+         "Premium":{
+            "family":null,
+            "name":"Premium",
+            "tier":"Premium",
+            "metadata":{
+               "description":"The SKU Pool Premium DTU "
+            }
+         },
+         "GP_Gen5":{
+            "family":"Gen5",
+            "name":"GP_Gen5",
+            "tier":"GeneralPurpose",
+            "metadata":{
+               "description":"The SKU Pool General Purpose vCore "
+            }
+         },
+         "BC_Gen5":{
+            "family":"Gen5",
+            "name":"BC_Gen5",
+            "tier":"BusinessCritical",
+            "metadata":{
+               "description":"The SKU Pool Business Critical vCore "
+            }
+         }
+      },
+      "skuName":"[variables('editionToSkuMap')[parameters('edition')].name]",
+      "skuTier":"[variables('editionToSkuMap')[parameters('edition')].tier]",
+      "skuFamily":"[variables('editionToSkuMap')[parameters('edition')].family]"
+   },
+   "resources":[
+      {
+         "type":"Microsoft.Sql/servers",
+         "apiVersion":"2021-02-01-preview",
+         "name":"[parameters('servers_name')]",
+         "location":"[parameters('location')]",
+         "tags":{
+            "App_Or_Project":"[parameters('ci_name')]"
+         },
+         "kind":"v12.0",
+         "properties":{
+            "administratorLogin":"[parameters('adminLogin')]",
+            "administratorLoginPassword":"[parameters('adminPassword')]",
+            "version":"12.0",
+            "minimalTlsVersion":"1.2",
+            "publicNetworkAccess":"Disabled"
+         },
+         "resources":[
+            {
+               "type":"connectionPolicies",
+               "apiVersion":"2014-04-01",
+               "name":"Default",
+               "dependsOn":[
+                  "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+               ],
+               "properties":{
+                  "connectionType":"[parameters('connectionType')]"
+               }
+            }
+         ]
+      },
+      {
+         "type":"Microsoft.Sql/servers/databases",
+         "apiVersion":"2021-02-01-preview",
+         "name":"[concat(parameters('servers_name'), '/',parameters('database_name'))]",
+         "location":"[parameters('location')]",
+         "dependsOn":[
+            "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+         ],
+         "tags":{
+            "App_Or_Project":"[parameters('ci_name')]"
+         },
+         "sku":{
+            "name":"[variables('skuName')]",
+            "tier":"[variables('skuTier')]",
+            "capacity":"[parameters('capacity')]",
+            "family":"[variables('skuFamily')]"
+         },
+         "kind":"v12.0,user",
+         "properties":{
+            "collation":"SQL_Latin1_General_CP1_CI_AS",
+            "catalogCollation":"SQL_Latin1_General_CP1_CI_AS",
+            "zoneRedundant":false,
+            "readScale":"Disabled",
+            "requestedBackupStorageRedundancy":"Local"
+         }
+      },
+      {
+         "type":"Microsoft.Sql/servers/databases/auditingPolicies",
+         "apiVersion":"2014-04-01",
+         "name":"[concat(parameters('servers_name'), '/',parameters('database_name'),'/Default')]",
+         "location":"[parameters('location')]",
+         "dependsOn":[
+            "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+            "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+         ],
+         "properties":{
+            "auditingState":"Disabled"
+         }
+      },
+      {
+         "type":"Microsoft.Sql/servers/auditingSettings",
+         "apiVersion":"2021-02-01-preview",
+         "name":"[concat(parameters('servers_name'), '/Default')]",
+         "dependsOn":[
+            "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+         ],
+         "properties":{
+            "isDevopsAuditEnabled":false,
+            "retentionDays":0,
+            "auditActionsAndGroups":[
+               "APPLICATION_ROLE_CHANGE_PASSWORD_GROUP",
+               "BATCH_STARTED_GROUP",
+               "BATCH_COMPLETED_GROUP",
+               "BACKUP_RESTORE_GROUP",
+               "DBCC_GROUP",
+               "DATABASE_LOGOUT_GROUP",
+               "DATABASE_OWNERSHIP_CHANGE_GROUP",
+               "DATABASE_CHANGE_GROUP",
+               "DATABASE_OBJECT_CHANGE_GROUP",
+               "DATABASE_OBJECT_OWNERSHIP_CHANGE_GROUP",
+               "DATABASE_OBJECT_PERMISSION_CHANGE_GROUP",
+               "DATABASE_OPERATION_GROUP",
+               "DATABASE_PERMISSION_CHANGE_GROUP",
+               "DATABASE_PRINCIPAL_CHANGE_GROUP",
+               "DATABASE_PRINCIPAL_IMPERSONATION_GROUP",
+               "DATABASE_ROLE_MEMBER_CHANGE_GROUP",
+               "FAILED_DATABASE_AUTHENTICATION_GROUP",
+               "SCHEMA_OBJECT_ACCESS_GROUP",
+               "SCHEMA_OBJECT_CHANGE_GROUP",
+               "SCHEMA_OBJECT_OWNERSHIP_CHANGE_GROUP",
+               "SCHEMA_OBJECT_PERMISSION_CHANGE_GROUP",
+               "SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP",
+               "USER_CHANGE_PASSWORD_GROUP"
+            ],
+            "isAzureMonitorTargetEnabled":true,
+            "state":"Enabled",
+            "storageAccountSubscriptionId":"00000000-0000-0000-0000-000000000000"
+         }
+      },
+      {
+         "type":"Microsoft.Sql/servers/databases/auditingSettings",
+         "apiVersion":"2021-02-01-preview",
+         "name":"[concat(parameters('servers_name'), '/',parameters('database_name'),'/Default')]",
+         "dependsOn":[
+            "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+            "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+         ],
+         "properties":{
+            "retentionDays":0,
+            "state":"Disabled",
+            "auditActionsAndGroups":[
+               "INSERT,UPDATE,DELETE,SELECT",
+               "APPLICATION_ROLE_CHANGE_PASSWORD_GROUP",
+               "BATCH_STARTED_GROUP",
+               "BATCH_COMPLETED_GROUP",
+               "BACKUP_RESTORE_GROUP",
+               "DBCC_GROUP",
+               "DATABASE_LOGOUT_GROUP",
+               "DATABASE_OWNERSHIP_CHANGE_GROUP",
+               "DATABASE_CHANGE_GROUP",
+               "DATABASE_OBJECT_CHANGE_GROUP",
+               "DATABASE_OBJECT_OWNERSHIP_CHANGE_GROUP",
+               "DATABASE_OBJECT_PERMISSION_CHANGE_GROUP",
+               "DATABASE_OPERATION_GROUP",
+               "DATABASE_PERMISSION_CHANGE_GROUP",
+               "DATABASE_PRINCIPAL_CHANGE_GROUP",
+               "DATABASE_PRINCIPAL_IMPERSONATION_GROUP",
+               "DATABASE_ROLE_MEMBER_CHANGE_GROUP",
+               "FAILED_DATABASE_AUTHENTICATION_GROUP",
+               "SCHEMA_OBJECT_ACCESS_GROUP",
+               "SCHEMA_OBJECT_CHANGE_GROUP",
+               "SCHEMA_OBJECT_OWNERSHIP_CHANGE_GROUP",
+               "SCHEMA_OBJECT_PERMISSION_CHANGE_GROUP",
+               "SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP",
+               "USER_CHANGE_PASSWORD_GROUP"
+            ],
+            "isStorageSecondaryKeyInUse":false,
+            "isAzureMonitorTargetEnabled":false,
+            "storageAccountSubscriptionId":"00000000-0000-0000-0000-000000000000"
+         }
+      },
+      {
+         "type":"Microsoft.Sql/servers/databases/backupLongTermRetentionPolicies",
+         "apiVersion":"2021-02-01-preview",
+         "name":"[concat(parameters('servers_name'), '/', parameters('database_name'),'/default')]",
+         "dependsOn":[
+            "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+            "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+         ],
+         "properties":{
+            "weeklyRetention":"P0W",
+            "monthlyRetention":"P0M",
+            "yearlyRetention":"P0Y",
+            "weekOfYear":1
+         }
+      },
+      {
+         "type":"Microsoft.Sql/servers/databases/backupShortTermRetentionPolicies",
+         "apiVersion":"2021-02-01-preview",
+         "name":"[concat(parameters('servers_name'), '/',parameters('database_name'),'/default')]",
+         "dependsOn":[
+            "[resourceId('Microsoft.Sql/servers/databases', parameters('servers_name'), parameters('database_name'))]",
+            "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+         ],
+         "properties":{
+            "retentionDays":30
+         }
+      },
+      {
+         "type":"Microsoft.Sql/servers/administrators",
+         "apiVersion":"2021-02-01-preview",
+         "name":"[concat(parameters('servers_name'), '/ActiveDirectory')]",
+         "dependsOn":[
+            "[resourceId('Microsoft.Sql/servers', parameters('servers_name'))]"
+         ],
+         "properties":{
+            "administratorType":"ActiveDirectory",
+            "login":"SQLAdmin",
+            "sid":"b940b1c4-792f-4655-a246-78f48f48b92a",
+            "tenantId":"022f3b02-6070-4e91-a96f-2206ab7ebb08"
+         }
+      },
+      {
+         "type":"Microsoft.Network/privateEndpoints",
+         "apiVersion":"2020-11-01",
+         "name":"[parameters('privateEndpoints_name')]",
+         "location":"[parameters('location')]",
+         "tags":{
+            "App_Or_Project":"[parameters('ci_name')]"
+         },
+         "properties":{
+            "privateLinkServiceConnections":[
+               {
+                  "name":"[parameters('privateEndpoints_name')]",
+                  "properties":{
+                     "privateLinkServiceId":"[variables('var_servers_externalid')]",
+                     "groupIds":[
+                        "SqlServer"
+                     ],
+                     "privateLinkServiceConnectionState":{
+                        "status":"Approved",
+                        "description":"Auto-approved",
+                        "actionsRequired":"None"
+                     }
+                  }
+               }
+            ],
+            "manualPrivateLinkServiceConnections":[
+               
+            ],
+            "subnet":{
+               "id":"[concat(variables('var_virtualNetworks_externalid'), '/subnets/', parameters('subnet_name'))]"
+            },
+            "customDnsConfigs":[
+               
+            ]
+         }
+      }
+   ]
+}
