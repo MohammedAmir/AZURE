@@ -1,0 +1,20 @@
+---
+- hosts: localhost
+  connection: local
+  environment:
+    AZURE_SUBSCRIPTION_ID: "{{ azure_subscription_id }}"
+  vars:
+    resource_group: Target resource group name
+    region: Target Region name
+    servername: target instance name
+    databasename: target database name
+    copymode: online_secondary
+  tasks:
+    - name: Create SQL Database in Copy Mode
+      azure_rm_sqldatabase:
+        resource_group: "{{ resource_group }}"
+        server_name: "{{ servername }}"
+        name: "{{ databasename }}"
+        location: "{{ region }}"
+        create_mode: "{{ copymode }}"
+        source_database_id: "/subscriptions/subscription id/resourceGroups/Resource Group Name/providers/Microsoft.Sql/servers/database instance/databases/database name"
